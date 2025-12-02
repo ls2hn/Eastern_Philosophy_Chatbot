@@ -1,5 +1,13 @@
 from dotenv import load_dotenv
 import streamlit as st
+
+if "OPENAI_API_KEY" in st.secrets:
+    os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+if "PINECONE_API_KEY" in st.secrets:
+    os.environ["PINECONE_API_KEY"] = st.secrets["PINECONE_API_KEY"]
+if "UPSTAGE_API_KEY" in st.secrets:
+    os.environ["UPSTAGE_API_KEY"] = st.secrets["UPSTAGE_API_KEY"]
+
 from llm import get_ai_response
 
 st.set_page_config(page_title="논어 챗봇", page_icon="🎋") 
