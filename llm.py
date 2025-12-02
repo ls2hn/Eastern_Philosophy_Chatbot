@@ -3,10 +3,12 @@ from langchain_pinecone import PineconeVectorStore
 from langchain_openai import ChatOpenAI
 from langchain_classic.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
+from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate, FewShotChatMessagePromptTemplate
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
+
+from config import answer_examples
 
 store = {}
 
@@ -23,13 +25,7 @@ def get_retriever():
     retriever = database.as_retriever(search_kwargs={'k':4})
     return retriever
 
-
-def get_llm(model='gpt-4o'):
-    llm = ChatOpenAI(model=model)
-    return llm
-
-
-def get_rag_chain():
+def get_history_retriever():
     llm = get_llm()
     retriever = get_retriever()
 
@@ -52,22 +48,49 @@ def get_rag_chain():
     history_aware_retriever = create_history_aware_retriever(
         llm, retriever, contextualize_q_prompt
     )
+    return history_aware_retriever
+
+def get_llm(model='gpt-4o'):
+    llm = ChatOpenAI(model=model)
+    return llm
+
+
+def get_rag_chain():
+    llm = get_llm()
+    
+    example_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("human", "{input}"),
+            ("ai", "{answer}"),
+        ]
+    )
+    few_shot_prompt = FewShotChatMessagePromptTemplate(
+        example_prompt=example_prompt,
+        examples=answer_examples,
+    )
+
     system_prompt = (
-        "You are an assistant for question-answering tasks. "
-        "Use the following pieces of retrieved context to answer "
-        "the question. If you don't know the answer, say that you "
-        "don't know. Use three sentences maximum and keep the "
-        "answer concise."
+        "You are an expert in Eastern Philosophy specializing in answering user questions. "
+        "Use the following pieces of retrieved context from the Analects to answer the question. "
+        "When the answer is based on the Analects text, please begin the response by presenting "
+        "the relevant original Chinese text along with the Analects chapter and number. "
+        "If the answer is not found in the provided context, you may state your thoughts briefly, "
+        "but never fabricate non-existent records or facts as real. "
+        "Limit your response to a maximum of thirty sentences. Adjust the length of your "
+        "answer based on the amount of retrieved context and keep the answer concise."
         "\n\n"
         "{context}"
     )
+
     qa_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", system_prompt),
+            few_shot_prompt,
             MessagesPlaceholder("chat_history"),
             ("human", "{input}"),
         ]
     )
+    history_aware_retriever = get_history_retriever()
     question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
