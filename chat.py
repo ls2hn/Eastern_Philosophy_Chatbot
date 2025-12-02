@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import streamlit as st
-from llm import get_ai_message
+from llm import get_ai_response
 
 st.set_page_config(page_title="논어 챗봇", page_icon="🎋") 
 st.title("🎋 논어 챗봇")
@@ -11,17 +11,21 @@ load_dotenv()
 if 'message_list' not in st.session_state:
     st.session_state.message_list = []
 
+# 이전 대화 랜더링
 for message in st.session_state.message_list:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
+# 새 입력 받기
 if user_question := st.chat_input(placeholder="궁금한 내용들을 말해주세요."):
+    # 유저 메시지 출력 + 저장
     with st.chat_message("user"):
         st.write(user_question)
     st.session_state.message_list.append({"role":"user", "content":user_question})
 
+    # AI 응답
     with st.spinner("생각 중..."):
-        ai_message = get_ai_message(user_question)
+        ai_response = get_ai_response(user_question)
         with st.chat_message("ai"):
-            st.write(ai_message)
-        st.session_state.message_list.append({"role":"ai", "content":ai_message})
+            ai_message = st.write_stream(ai_response)
+            st.session_state.message_list.append({"role":"ai", "content":ai_message})
