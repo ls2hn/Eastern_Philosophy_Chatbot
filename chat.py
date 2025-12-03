@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import streamlit as st
+import os
 
 if "OPENAI_API_KEY" in st.secrets:
     os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
