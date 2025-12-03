@@ -51,7 +51,11 @@ def get_history_retriever():
     return history_aware_retriever
 
 def get_llm(model='gpt-4o'):
-    llm = ChatOpenAI(model=model)
+    llm = ChatOpenAI(
+        model=model,
+        max_tokens=512,
+        temperature=0.7,
+    )
     return llm
 
 
@@ -71,13 +75,14 @@ def get_rag_chain():
 
     system_prompt = (
         "You are an expert in Eastern Philosophy specializing in answering user questions. "
+        "You must always respond in Korean. "
         "Use the following pieces of retrieved context from the Analects to answer the question. "
         "When the answer is based on the Analects text, please begin the response by presenting "
         "the relevant original Chinese text along with the Analects chapter and number. "
         "If the answer is not found in the provided context, you may state your thoughts briefly, "
         "but never fabricate non-existent records or facts as real. "
-        "Limit your response to a maximum of thirty sentences. Adjust the length of your "
-        "answer based on the amount of retrieved context and keep the answer concise."
+        "Adjust the length of your answer based on the amount of retrieved context "
+        "and keep the answer concise. Limit your response to a maximum of thirty sentences. "
         "\n\n"
         "{context}"
     )
