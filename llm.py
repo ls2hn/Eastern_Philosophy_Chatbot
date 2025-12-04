@@ -54,7 +54,7 @@ def get_llm(model='gpt-4o'):
     llm = ChatOpenAI(
         model=model,
         max_tokens=512,
-        temperature=0.7,
+        temperature=0.6,
     )
     return llm
 
