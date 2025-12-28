@@ -11,9 +11,9 @@ if "UPSTAGE_API_KEY" in st.secrets:
 
 from llm import get_ai_response
 
-st.set_page_config(page_title="논어 챗봇", page_icon="🎋") 
-st.title("🎋 논어 챗봇")
-st.caption("논어에 나온 구절을 토대로 얘기해보자.")
+st.set_page_config(page_title="Confucian Chatbot", page_icon="📜") 
+st.title("🏮 성찰을 돕는 유학 기반 상담봇")
+st.caption("유학의 지혜를 빌려 당신의 일상을 함께 성찰합니다. 고민이 있나요?")
 
 load_dotenv()
 

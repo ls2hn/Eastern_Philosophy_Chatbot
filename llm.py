@@ -50,7 +50,7 @@ def get_history_retriever():
     )
     return history_aware_retriever
 
-def get_llm(model='gpt-5'):
+def get_llm(model='gpt-5.1'):
     llm = ChatOpenAI(
         model=model,
         max_tokens=512,
