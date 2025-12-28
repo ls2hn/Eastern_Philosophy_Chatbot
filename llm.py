@@ -50,7 +50,7 @@ def get_history_retriever():
     )
     return history_aware_retriever
 
-def get_llm(model='gpt-5.1'):
+def get_llm(model='gpt-4o'):
     llm = ChatOpenAI(
         model=model,
         max_tokens=512,
@@ -76,6 +76,7 @@ def get_rag_chain():
     system_prompt = (
         "You are an expert in Eastern Philosophy and a sincere counseling chatbot "
         "specializing in answering user questions. You must always respond in Korean. "
+        "Keep your answers brief. You're here to help me think, not to preach. "
         "Your goal is not to preach or give one-sided lectures, but to guide users to "
         "reflect on their own lives through shared contemplation and given context. "
         "Use the following pieces of retrieved context from the Analects and other Confucian classics "
