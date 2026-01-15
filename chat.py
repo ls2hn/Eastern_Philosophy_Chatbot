@@ -14,14 +14,14 @@ APK_PAGE_URL = "https://lily-naranja-3e1.notion.site/On-Go-2e5a6169acfe80adac9bc
 st.set_page_config(page_title="Confucian Chatbot", page_icon="📜") 
 
 with st.sidebar:
-    st.header("📱 溫故(On-Go) 모바일 앱 다운로드")
-    st.markdown("**온고지신(溫故知新)**의 정신을 바탕으로 한 유학 기반 상담봇입니다.")
+    st.header("溫故(On-Go) 모바일 앱 다운로드")
+    st.markdown("온고지신(溫故知新)의 정신을 바탕으로 한 유학 기반 상담봇입니다.")
     st.write("이 상담봇은 웹에서 바로 사용 가능하며, Android 기기에서는 APK로 설치해 모바일 앱으로도 이용할 수 있습니다.")
-    st.markdown(f"➡️ **[Android APK 다운로드 페이지로 이동]({APK_PAGE_URL})**")
+    st.markdown(f"📱 **[다운로드 페이지로 이동]({APK_PAGE_URL})**")
     st.markdown(
             """
 - APK는 이 링크에서만 다운로드하세요.  
-- 압축을 풀고나서 설치 시 Android 설정에서 **‘알 수 없는 앱 설치’ 허용**이 필요합니다.
+- 압축을 풀고난 후 앱 설치 시 Android 설정에서 **‘알 수 없는 앱 설치’ 허용**이 필요합니다.
 - 인터넷 연결이 필요하며, 입력 내용은 답변 생성을 위해 서버/외부 API로 전송됩니다.  
   **민감한 개인정보(주민번호/계좌/비밀번호 등)는 입력하지 마세요.**  
 - 의료·법률·투자 등 전문 판단이 필요한 사안은 **전문가 상담을 권장**합니다.
