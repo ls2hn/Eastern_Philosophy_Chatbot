@@ -14,7 +14,7 @@ from langchain_core.runnables import RunnableLambda
 from typing import Optional, Dict, Any
 
 from config import answer_examples
-from graph_store import (
+from kg_pipeline.graph_store import (
     extract_concepts_mvp,
     retrieve_passages_by_concepts,
     build_graph_evidence_block,
@@ -219,14 +219,16 @@ def get_graph_context(question: str, k: int = 5) -> str:
     try:
         paths = retrieve_paths_2hop(concepts, k_paths=params["k_paths"], k_seed_passages=params["k_seed_passages"])
         path_ctx = build_graph_path_evidence_block(paths, question, max_paths=params["max_paths"])
-    except Exception:
+    except Exception as e:
+        print("[DEBUG] retrieve_paths_2hop failed:", repr(e), file=sys.stderr, flush=True)
         path_ctx = ""
 
     try:
         # 2) 기존 passage evidence도 뒤에 붙여서 안정성 확보
         rows = retrieve_passages_by_concepts(concepts, k=k_passages)
         base_ctx = build_graph_evidence_block(rows, question)
-    except Exception:
+    except Exception as e:
+        print("[DEBUG] retrieve_passages_by_concepts failed:", repr(e), file=sys.stderr, flush=True)
         base_ctx = ""
 
     combined = ""

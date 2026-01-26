@@ -1,22 +1,38 @@
 # graph_store.py
 import os
+from pathlib import Path
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 
-load_dotenv()
+CURRENT_FILE = Path(__file__).resolve()
+PROJECT_ROOT = CURRENT_FILE.parent.parent
+ENV_PATH = PROJECT_ROOT / ".env"
+
+# .env 파일 로드 (절대 경로 지정으로 어디서든 실행 가능)
+if ENV_PATH.exists():
+    load_dotenv(ENV_PATH)
+else:
+    print(f"Warning: .env file not found at {ENV_PATH}")
+
+def get_neo4j_driver():
+    # Neo4j 드라이버 인스턴스를 생성하여 반환한다.
+    uri = os.environ.get("NEO4J_URI")
+    user = os.environ.get("NEO4J_USER")
+    password = os.environ.get("NEO4J_PASSWORD")
+
+    if not all([uri, user, password]):
+        raise ValueError("Neo4j 환경 변수가 누락되었습니다. .env 파일을 확인하세요.")
+        
+    return GraphDatabase.driver(uri, auth=(user, password))
 
 def test_neo4j_connection():
-    uri = os.environ["NEO4J_URI"]
-    user = os.environ["NEO4J_USER"]
-    password = os.environ["NEO4J_PASSWORD"]
-
-    driver = GraphDatabase.driver(uri, auth=(user, password))
-    with driver.session() as session:
-        result = session.run("MATCH (c:Concept) RETURN c.name AS name LIMIT 5")
-        rows = [r["name"] for r in result]
-
-    driver.close()
-    return rows
+    driver = get_neo4j_driver()
+    try:
+        with driver.session() as session:
+            result = session.run("MATCH (c:Concept) RETURN c.name AS name LIMIT 5")
+            return [r["name"] for r in result]
+    finally:
+        driver.close()
 
 
 def extract_concepts_mvp(question: str) -> list[str]:
@@ -61,16 +77,7 @@ def extract_concepts_mvp(question: str) -> list[str]:
     return deduped
 
 def retrieve_passages_by_concepts(concepts: list[str], k: int = 5) -> list[dict]:
-    from neo4j import GraphDatabase
-    from dotenv import load_dotenv
-    import os
-
-    load_dotenv()
-    uri = os.environ["NEO4J_URI"]
-    user = os.environ["NEO4J_USER"]
-    password = os.environ["NEO4J_PASSWORD"]
-
-    q = """
+    query = """
     MATCH (p:Passage)-[:MENTIONS]->(c:Concept)
     WHERE c.name IN $concepts
     WITH p, collect(DISTINCT c.name) AS hit_concepts, size(collect(DISTINCT c.name)) AS score
@@ -83,11 +90,14 @@ def retrieve_passages_by_concepts(concepts: list[str], k: int = 5) -> list[dict]
     LIMIT $k
     """
 
-    driver = GraphDatabase.driver(uri, auth=(user, password))
-    with driver.session() as s:
-        rows = s.run(q, concepts=concepts, k=k).data()
-    driver.close()
-    return rows
+    # 드라이버 생성 (미리 정의된 get_neo4j_driver()가 있다면 그것을 사용하세요)
+    driver = get_neo4j_driver()
+    try:
+        with driver.session() as s:
+            return s.run(query, concepts=concepts, k=k).data()
+    finally:
+        driver.close()
+
 
 def build_graph_evidence_block(rows: list[dict], question: str) -> str:
     if not rows:
@@ -121,15 +131,7 @@ def retrieve_paths_2hop(concepts: list[str], k_paths: int = 10, k_seed_passages:
     - bridgeConcept: p1과 p2가 공유하는 '연결 개념'
     - 결과는 path 후보 목록(딕셔너리들)
     """
-
-    from neo4j import GraphDatabase
-    from dotenv import load_dotenv
-    import os
-
-    load_dotenv()
-    uri = os.environ["NEO4J_URI"]
-    user = os.environ["NEO4J_USER"]
-    password = os.environ["NEO4J_PASSWORD"]
+    driver = get_neo4j_driver()
 
     q = """
     // 1) seed concept을 언급하는 passage(p1)들 후보를 먼저 확보
@@ -185,16 +187,16 @@ def retrieve_paths_2hop(concepts: list[str], k_paths: int = 10, k_seed_passages:
     LIMIT $k_paths
     """
 
-    driver = GraphDatabase.driver(uri, auth=(user, password))
-    with driver.session() as s:
-        rows = s.run(
-            q,
-            concepts=concepts,
-            k_paths=int(k_paths),
-            k_seed_passages=int(k_seed_passages),
-        ).data()
-    driver.close()
-    return rows
+    try:
+        with driver.session() as s:
+            return s.run(
+                q, 
+                concepts=concepts, 
+                k_paths=int(k_paths), 
+                k_seed_passages=int(k_seed_passages)
+            ).data()
+    finally:
+        driver.close()
 
 def build_graph_path_evidence_block(paths: list[dict], question: str, max_paths: int = 5) -> str:
     if not paths:
@@ -230,6 +232,7 @@ def build_graph_path_evidence_block(paths: list[dict], question: str, max_paths:
 if __name__ == "__main__":
     q = "논어에서 孝는 개인의 덕목인가, 사회 질서를 위한 기준인가?"
     concepts = extract_concepts_mvp(q)
+    
     rows = retrieve_passages_by_concepts(concepts, k=5)
 
     graph_ctx = build_graph_evidence_block(rows, q)

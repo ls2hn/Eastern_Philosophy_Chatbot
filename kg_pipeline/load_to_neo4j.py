@@ -12,6 +12,9 @@ import argparse
 from pathlib import Path
 from collections import defaultdict
 from neo4j import GraphDatabase
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 WORK_NAME = "Analects"
