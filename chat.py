@@ -8,6 +8,10 @@ if "PINECONE_API_KEY" in st.secrets:
     os.environ["PINECONE_API_KEY"] = st.secrets["PINECONE_API_KEY"]
 if "UPSTAGE_API_KEY" in st.secrets:
     os.environ["UPSTAGE_API_KEY"] = st.secrets["UPSTAGE_API_KEY"]
+if "NEO4J_URI" in st.secrets:
+    os.environ["NEO4J_URI"] = st.secrets["NEO4J_URI"]
+    os.environ["NEO4J_USER"] = st.secrets["NEO4J_USER"]
+    os.environ["NEO4J_PASSWORD"] = st.secrets["NEO4J_PASSWORD"]
 
 from llm import get_ai_response
 APK_PAGE_URL = "https://lily-naranja-3e1.notion.site/On-Go-2e5a6169acfe80adac9bcde2e1e5b38e"

@@ -136,6 +136,20 @@ def main():
     ap.add_argument("--password", required=True)
     args = ap.parse_args()
 
+    import os
+    # .env에서 load_dotenv()가 이미 위에서 실행된 상황에서
+    if not args.uri:
+        args.uri = os.environ.get("NEO4J_URI")
+    if not args.user:
+        args.user = os.environ.get("NEO4J_USER", "neo4j")
+    if not args.password:
+        args.password = os.environ.get("NEO4J_PASSWORD")
+
+    if not args.uri:
+        raise ValueError("NEO4J_URI가 비어 있습니다. .env 또는 환경변수를 확인하세요.")
+    if not args.password:
+        raise ValueError("NEO4J_PASSWORD가 비어 있습니다. .env 또는 환경변수를 확인하세요.")
+
     passages = load_json(Path(args.input))
     load_to_neo4j(args.uri, args.user, args.password, passages)
     print(f"[OK] Loaded passages: {len(passages)}")
