@@ -12,6 +12,7 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
 from typing import Optional, Dict, Any
+import sys
 
 from config import answer_examples
 from kg_pipeline.graph_store import (
@@ -121,12 +122,18 @@ def get_rag_chain():
 
         q = inputs.get("input", "")
         print(f"\n[DEBUG] wrapped_retriever CALLED q={q[:30]!r}", file=sys.stderr, flush=True)
+        concepts = extract_concepts_mvp(q)
+        print(f"[DEBUG] concepts={concepts}", file=sys.stderr, flush=True)
 
-        strength = decide_graph_strength(q, extract_concepts_mvp(q))
+        strength = decide_graph_strength(q, concepts)
         print(f"[DEBUG] strength={strength}", file=sys.stderr, flush=True)
+        
+        # strength = decide_graph_strength(q, extract_concepts_mvp(q))
+        # print(f"[DEBUG] strength={strength}", file=sys.stderr, flush=True)
 
         docs = history_aware_retriever.invoke(inputs) # 파인콘에서 벡터 검색 결과
         print(f"[DEBUG] pinecone docs={len(docs)}", file=sys.stderr, flush=True)
+        
         graph_ctx = get_graph_context(q)  # k를 굳이 안 줘도 됨(동적)
         print(f"[DEBUG] graph_ctx length={len(graph_ctx)}", file=sys.stderr, flush=True)
         print("[DEBUG] graph_ctx head:", graph_ctx[:200].replace("\n"," "), file=sys.stderr, flush=True)
@@ -207,10 +214,15 @@ def clip_text(s: str, max_chars: int) -> str:
 def get_graph_context(question: str, k: int = 5) -> str:
     concepts = extract_concepts_mvp(question)
     if not concepts:
+        print("[DEBUG] get_graph_context: concepts empty -> return ''", file=sys.stderr, flush=True)
         return ""
     
     strength = decide_graph_strength(question, concepts)
     params = graph_params_by_strength(strength)
+    print(f"[DEBUG] get_graph_context strength={strength} params={params}", file=sys.stderr, flush=True)
+    
+    import os
+    print(f"[DEBUG] NEO4J_URI env={os.environ.get('NEO4J_URI')}", file=sys.stderr, flush=True)
 
     # k(패시지 evidence 수)는 외부에서 주면 우선, 아니면 강도별 기본값 사용
     k_passages = int(k) if k is not None else params["k_passages"]
@@ -218,6 +230,7 @@ def get_graph_context(question: str, k: int = 5) -> str:
     # 1) PATH evidence (논증 사슬) 먼저
     try:
         paths = retrieve_paths_2hop(concepts, k_paths=params["k_paths"], k_seed_passages=params["k_seed_passages"])
+        print(f"[DEBUG] paths len={len(paths) if paths is not None else None}", file=sys.stderr, flush=True)
         path_ctx = build_graph_path_evidence_block(paths, question, max_paths=params["max_paths"])
     except Exception as e:
         print("[DEBUG] retrieve_paths_2hop failed:", repr(e), file=sys.stderr, flush=True)
@@ -226,6 +239,7 @@ def get_graph_context(question: str, k: int = 5) -> str:
     try:
         # 2) 기존 passage evidence도 뒤에 붙여서 안정성 확보
         rows = retrieve_passages_by_concepts(concepts, k=k_passages)
+        print(f"[DEBUG] rows len={len(rows) if rows is not None else None}", file=sys.stderr, flush=True)
         base_ctx = build_graph_evidence_block(rows, question)
     except Exception as e:
         print("[DEBUG] retrieve_passages_by_concepts failed:", repr(e), file=sys.stderr, flush=True)

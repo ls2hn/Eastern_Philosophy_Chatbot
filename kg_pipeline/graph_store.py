@@ -1,5 +1,5 @@
 # graph_store.py
-import os
+import os, sys, time
 from pathlib import Path
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
@@ -20,6 +20,9 @@ def get_neo4j_driver():
     user = os.environ.get("NEO4J_USER")
     password = os.environ.get("NEO4J_PASSWORD")
 
+    print(f"[DEBUG][neo4j] URI={uri} USER={user} PWD={'SET' if password else 'MISSING'}",
+file=sys.stderr, flush=True)
+
     if not all([uri, user, password]):
         raise ValueError("Neo4j 환경 변수가 누락되었습니다. .env 파일을 확인하세요.")
         
@@ -29,6 +32,7 @@ def test_neo4j_connection():
     driver = get_neo4j_driver()
     try:
         with driver.session() as session:
+
             result = session.run("MATCH (c:Concept) RETURN c.name AS name LIMIT 5")
             return [r["name"] for r in result]
     finally:
@@ -92,9 +96,27 @@ def retrieve_passages_by_concepts(concepts: list[str], k: int = 5) -> list[dict]
 
     # 드라이버 생성 (미리 정의된 get_neo4j_driver()가 있다면 그것을 사용하세요)
     driver = get_neo4j_driver()
+    params = {"concepts": concepts, "k": int(k)}
+
     try:
         with driver.session() as s:
-            return s.run(query, concepts=concepts, k=k).data()
+            t0 = time.time()
+            print("[DEBUG][passages] cypher:", query.strip()[:300], file=sys.stderr, flush=True)
+            print("[DEBUG][passages] params:", params, file=sys.stderr, flush=True)
+
+            data = s.run(query, **params).data()
+
+            dt = (time.time() - t0) * 1000
+            print(f"[DEBUG][passages] rows={len(data)} time_ms={dt:.1f}", file=sys.stderr, flush=True)
+            if data:
+                print("[DEBUG][passages] first_row_keys:", list(data[0].keys()), file=sys.stderr, flush=True)
+
+            return data
+    except Exception as e:
+        import traceback
+        print("[ERROR][passages] failed:", repr(e), file=sys.stderr, flush=True)
+        print(traceback.format_exc(), file=sys.stderr, flush=True)
+        return []
     finally:
         driver.close()
 
@@ -187,14 +209,31 @@ def retrieve_paths_2hop(concepts: list[str], k_paths: int = 10, k_seed_passages:
     LIMIT $k_paths
     """
 
+    params = {
+        "concepts": concepts,
+        "k_paths": int(k_paths),
+        "k_seed_passages": int(k_seed_passages),
+    }
+
     try:
         with driver.session() as s:
-            return s.run(
-                q, 
-                concepts=concepts, 
-                k_paths=int(k_paths), 
-                k_seed_passages=int(k_seed_passages)
-            ).data()
+            t0 = time.time()
+            print("[DEBUG][paths] cypher:", q.strip()[:300], file=sys.stderr, flush=True)
+            print("[DEBUG][paths] params:", params, file=sys.stderr, flush=True)
+
+            data = s.run(q, **params).data()
+
+            dt = (time.time() - t0) * 1000
+            print(f"[DEBUG][paths] rows={len(data)} time_ms={dt:.1f}", file=sys.stderr, flush=True)
+            if data:
+                print("[DEBUG][paths] first_row_keys:", list(data[0].keys()), file=sys.stderr, flush=True)
+
+            return data
+    except Exception as e:
+        import traceback
+        print("[ERROR][paths] failed:", repr(e), file=sys.stderr, flush=True)
+        print(traceback.format_exc(), file=sys.stderr, flush=True)
+        return []
     finally:
         driver.close()
 
