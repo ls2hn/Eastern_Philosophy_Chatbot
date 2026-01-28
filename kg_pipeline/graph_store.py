@@ -1,8 +1,11 @@
 # graph_store.py
-import os, sys, time
+import os
+import sys
+import time
 from pathlib import Path
-from neo4j import GraphDatabase
+
 from dotenv import load_dotenv
+from neo4j import GraphDatabase
 
 CURRENT_FILE = Path(__file__).resolve()
 PROJECT_ROOT = CURRENT_FILE.parent.parent
@@ -14,19 +17,24 @@ if ENV_PATH.exists():
 else:
     print(f"Warning: .env file not found at {ENV_PATH}")
 
+
 def get_neo4j_driver():
     # Neo4j 드라이버 인스턴스를 생성하여 반환한다.
     uri = os.environ.get("NEO4J_URI")
     user = os.environ.get("NEO4J_USER")
     password = os.environ.get("NEO4J_PASSWORD")
 
-    print(f"[DEBUG][neo4j] URI={uri} USER={user} PWD={'SET' if password else 'MISSING'}",
-file=sys.stderr, flush=True)
+    print(
+        f"[DEBUG][neo4j] URI={uri} USER={user} PWD={'SET' if password else 'MISSING'}",
+        file=sys.stderr,
+        flush=True,
+    )
 
     if not all([uri, user, password]):
         raise ValueError("Neo4j 환경 변수가 누락되었습니다. .env 파일을 확인하세요.")
-        
+
     return GraphDatabase.driver(uri, auth=(user, password))
+
 
 def test_neo4j_connection():
     driver = get_neo4j_driver()
@@ -45,21 +53,38 @@ def extract_concepts_mvp(question: str) -> list[str]:
     # 1) 기본 매핑(한글/한자 키워드 → Concept name)
     mapping = {
         # core
-        "인": "仁", "仁": "仁",
-        "의": "義", "義": "義",
-        "예": "禮", "禮": "禮",
-        "효": "孝", "孝": "孝",
-        "군자": "君子", "君子": "君子",
-        "소인": "小人", "小人": "小人",
-
+        "인": "仁",
+        "仁": "仁",
+        "의": "義",
+        "義": "義",
+        "예": "禮",
+        "禮": "禮",
+        "효": "孝",
+        "孝": "孝",
+        "군자": "君子",
+        "君子": "君子",
+        "소인": "小人",
+        "小人": "小人",
         # governance / social order
-        "정치": "政", "政": "政",
-        "다스림": "治", "치": "治", "治": "治",
-        "나라": "國", "국가": "國", "國": "國",
-        "가정": "家", "집": "家", "家": "家",
-        "백성": "民", "민": "民", "民": "民",
-        "임금": "君", "군": "君", "君": "君",
-        "신하": "臣", "臣": "臣",
+        "정치": "政",
+        "政": "政",
+        "다스림": "治",
+        "치": "治",
+        "治": "治",
+        "나라": "國",
+        "국가": "國",
+        "國": "國",
+        "가정": "家",
+        "집": "家",
+        "家": "家",
+        "백성": "民",
+        "민": "民",
+        "民": "民",
+        "임금": "君",
+        "군": "君",
+        "君": "君",
+        "신하": "臣",
+        "臣": "臣",
     }
 
     hits = []
@@ -68,7 +93,9 @@ def extract_concepts_mvp(question: str) -> list[str]:
             hits.append(v)
 
     # 2) 질문 패턴 보정: "개인 vs 사회/질서" 류면 사회축을 자동으로 보강
-    if ("효" in q or "孝" in q) and any(t in q for t in ["사회", "질서", "정치", "국가", "나라"]):
+    if ("효" in q or "孝" in q) and any(
+        t in q for t in ["사회", "질서", "정치", "국가", "나라"]
+    ):
         hits += ["政", "國", "民", "君", "家"]
 
     # dedup (순서 유지)
@@ -79,6 +106,7 @@ def extract_concepts_mvp(question: str) -> list[str]:
             seen.add(x)
             deduped.append(x)
     return deduped
+
 
 def retrieve_passages_by_concepts(concepts: list[str], k: int = 5) -> list[dict]:
     query = """
@@ -101,19 +129,34 @@ def retrieve_passages_by_concepts(concepts: list[str], k: int = 5) -> list[dict]
     try:
         with driver.session() as s:
             t0 = time.time()
-            print("[DEBUG][passages] cypher:", query.strip()[:300], file=sys.stderr, flush=True)
+            print(
+                "[DEBUG][passages] cypher:",
+                query.strip()[:300],
+                file=sys.stderr,
+                flush=True,
+            )
             print("[DEBUG][passages] params:", params, file=sys.stderr, flush=True)
 
             data = s.run(query, **params).data()
 
             dt = (time.time() - t0) * 1000
-            print(f"[DEBUG][passages] rows={len(data)} time_ms={dt:.1f}", file=sys.stderr, flush=True)
+            print(
+                f"[DEBUG][passages] rows={len(data)} time_ms={dt:.1f}",
+                file=sys.stderr,
+                flush=True,
+            )
             if data:
-                print("[DEBUG][passages] first_row_keys:", list(data[0].keys()), file=sys.stderr, flush=True)
+                print(
+                    "[DEBUG][passages] first_row_keys:",
+                    list(data[0].keys()),
+                    file=sys.stderr,
+                    flush=True,
+                )
 
             return data
     except Exception as e:
         import traceback
+
         print("[ERROR][passages] failed:", repr(e), file=sys.stderr, flush=True)
         print(traceback.format_exc(), file=sys.stderr, flush=True)
         return []
@@ -128,20 +171,31 @@ def build_graph_evidence_block(rows: list[dict], question: str) -> str:
     lines = []
     lines.append("[GRAPH EVIDENCE - Neo4j]")
     lines.append(f"Question: {question}")
-    lines.append("Selection rule: passages that mention many of the requested concepts are ranked higher (score = #hit_concepts).")
+    lines.append(
+        "Selection rule: passages that mention many of the requested concepts are ranked higher (score = #hit_concepts)."
+    )
     lines.append("")
 
     for r in rows:
-        lines.append(f"- score={r['score']} hit={r['hit_concepts']} | {r['chapter']}({r['chapter_no']}) pid={r['pid']}")
+        # Few-shot 포맷: 《논어》 편명 번호
+        chapter_name = r.get("chapter") or ""
+        pid = r.get("pid") or ""
+        # pid에서 번호 추출 (예: "學而第一_01" -> "1")
+        passage_num = pid.split("_")[-1].lstrip("0") if "_" in pid else ""
+
+        lines.append(f"《논어》 {chapter_name} {passage_num}")
         if r.get("zh"):
-            lines.append(f"  〈한문〉 {r['zh']}")
+            lines.append(f"「{r['zh']}」")
         if r.get("ko"):
-            lines.append(f"  〈번역〉 {r['ko']}")
+            lines.append(f"\"{r['ko']}\"")
         lines.append("")
 
     return "\n".join(lines).strip()
 
-def retrieve_paths_2hop(concepts: list[str], k_paths: int = 10, k_seed_passages: int = 20) -> list[dict]:
+
+def retrieve_paths_2hop(
+    concepts: list[str], k_paths: int = 10, k_seed_passages: int = 20
+) -> list[dict]:
     """
     Neo4j에서 '논증 사슬' 후보를 2-hop 형태로 추출한다.
 
@@ -218,26 +272,41 @@ def retrieve_paths_2hop(concepts: list[str], k_paths: int = 10, k_seed_passages:
     try:
         with driver.session() as s:
             t0 = time.time()
-            print("[DEBUG][paths] cypher:", q.strip()[:300], file=sys.stderr, flush=True)
+            print(
+                "[DEBUG][paths] cypher:", q.strip()[:300], file=sys.stderr, flush=True
+            )
             print("[DEBUG][paths] params:", params, file=sys.stderr, flush=True)
 
             data = s.run(q, **params).data()
 
             dt = (time.time() - t0) * 1000
-            print(f"[DEBUG][paths] rows={len(data)} time_ms={dt:.1f}", file=sys.stderr, flush=True)
+            print(
+                f"[DEBUG][paths] rows={len(data)} time_ms={dt:.1f}",
+                file=sys.stderr,
+                flush=True,
+            )
             if data:
-                print("[DEBUG][paths] first_row_keys:", list(data[0].keys()), file=sys.stderr, flush=True)
+                print(
+                    "[DEBUG][paths] first_row_keys:",
+                    list(data[0].keys()),
+                    file=sys.stderr,
+                    flush=True,
+                )
 
             return data
     except Exception as e:
         import traceback
+
         print("[ERROR][paths] failed:", repr(e), file=sys.stderr, flush=True)
         print(traceback.format_exc(), file=sys.stderr, flush=True)
         return []
     finally:
         driver.close()
 
-def build_graph_path_evidence_block(paths: list[dict], question: str, max_paths: int = 5) -> str:
+
+def build_graph_path_evidence_block(
+    paths: list[dict], question: str, max_paths: int = 5
+) -> str:
     if not paths:
         return ""
 
@@ -245,24 +314,40 @@ def build_graph_path_evidence_block(paths: list[dict], question: str, max_paths:
     lines.append("[GRAPH PATH EVIDENCE - Neo4j]")
     lines.append(f"Question: {question}")
     lines.append("Each PATH is a 2-hop chain built via shared bridge concepts.")
-    lines.append("Try to build an argument chain from 'personal virtue' to 'social order' using these.")
+    lines.append(
+        "Try to build an argument chain from 'personal virtue' to 'social order' using these."
+    )
     lines.append("")
 
     for i, p in enumerate(paths[:max_paths], 1):
-        lines.append(f"## PATH {i} | relevance={p.get('relevance_score')} bridge_strength={p.get('bridge_strength')}")
+        lines.append(
+            f"## PATH {i} | relevance={p.get('relevance_score')} bridge_strength={p.get('bridge_strength')}"
+        )
         lines.append(f"- seed_hits(p1): {p.get('seed_hits')}")
         lines.append(f"- seed_hits(p2): {p.get('p2_seed_hits')}")
         lines.append(f"- bridges(shared concepts): {p.get('bridges')}")
-        lines.append(f"- p1: {p.get('p1_chapter')}({p.get('p1_chapter_no')}) pid={p.get('p1_pid')}")
+
+        # p1: Few-shot 포맷으로 변환
+        p1_chapter = p.get("p1_chapter") or ""
+        p1_pid = p.get("p1_pid") or ""
+        p1_num = p1_pid.split("_")[-1].lstrip("0") if "_" in p1_pid else ""
+
+        lines.append(f"《논어》 {p1_chapter} {p1_num}")
         if p.get("p1_zh"):
-            lines.append(f"  〈한문〉 {p['p1_zh']}")
+            lines.append(f"「{p['p1_zh']}」")
         if p.get("p1_ko"):
-            lines.append(f"  〈번역〉 {p['p1_ko']}")
-        lines.append(f"- p2: {p.get('p2_chapter')}({p.get('p2_chapter_no')}) pid={p.get('p2_pid')}")
+            lines.append(f"\"{p['p1_ko']}\"")
+
+        # p2: Few-shot 포맷으로 변환
+        p2_chapter = p.get("p2_chapter") or ""
+        p2_pid = p.get("p2_pid") or ""
+        p2_num = p2_pid.split("_")[-1].lstrip("0") if "_" in p2_pid else ""
+
+        lines.append(f"《논어》 {p2_chapter} {p2_num}")
         if p.get("p2_zh"):
-            lines.append(f"  〈한문〉 {p['p2_zh']}")
+            lines.append(f"「{p['p2_zh']}」")
         if p.get("p2_ko"):
-            lines.append(f"  〈번역〉 {p['p2_ko']}")
+            lines.append(f"\"{p['p2_ko']}\"")
         lines.append("")
 
     return "\n".join(lines).strip()
@@ -271,7 +356,7 @@ def build_graph_path_evidence_block(paths: list[dict], question: str, max_paths:
 if __name__ == "__main__":
     q = "논어에서 孝는 개인의 덕목인가, 사회 질서를 위한 기준인가?"
     concepts = extract_concepts_mvp(q)
-    
+
     rows = retrieve_passages_by_concepts(concepts, k=5)
 
     graph_ctx = build_graph_evidence_block(rows, q)
