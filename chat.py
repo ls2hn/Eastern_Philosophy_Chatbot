@@ -36,11 +36,10 @@ with st.sidebar:
 """
     )
     st.header("동양고전DB 사이트에서 유학경전 더 읽어보기❕")
-    st.markdown(f"**[논어]({ANALECTS_URL})**")
-    st.markdown(f"**[맹자]({MENCIUS_URL})**")
+    st.markdown(f"**[논어]({ANALECTS_URL})** **[맹자]({MENCIUS_URL})**")
     st.markdown(f"**[주역]({CHANGES_URL})**")
-    st.markdown(f"**[대학]({LEARNING_URL})**")
-    st.markdown(f"**[중용]({MEAN_URL})**")
+    st.markdown(f"**[대학]({LEARNING_URL})** **[중용]({MEAN_URL})**")
+
 
 
 
